@@ -194,3 +194,25 @@ def to_dataframe(X):
     df = pd.DataFrame(X, columns=C.INGREDIENTS)
     df.insert(0, "Point", [f"P{i+1:04d}" for i in range(len(df))])
     return df
+
+
+def make_simplex_figures(df):
+    import plotly.graph_objects as go
+    figs = []
+    for combo in combinations(C.INGREDIENTS, 3):
+        sub = df[list(combo)]
+        sub = sub.div(sub.sum(axis=1).replace(0, np.nan), axis=0).fillna(0.0)
+        names = [C.INGREDIENT_NAMES[c] for c in combo]
+        fig = go.Figure([
+            go.Mesh3d(x=[1, 0, 0], y=[0, 1, 0], z=[0, 0, 1], i=[0], j=[1], k=[2], opacity=0.12,
+                      color="#2f5d8a", hoverinfo="skip"),
+            go.Scatter3d(x=sub[combo[0]], y=sub[combo[1]], z=sub[combo[2]], mode="markers",
+                         marker=dict(size=3, color="#2f5d8a"))])
+        fig.update_layout(title=" : ".join(names), showlegend=False, height=420,
+                          margin=dict(l=0, r=0, t=40, b=0),
+                          scene=dict(xaxis=dict(title=names[0], range=[0, 1]),
+                                     yaxis=dict(title=names[1], range=[0, 1]),
+                                     zaxis=dict(title=names[2], range=[0, 1])))
+        figs.append(fig)
+    return figs
+

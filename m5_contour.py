@@ -63,43 +63,57 @@ def _nice_levels(z, n=6):
     return np.ceil(lo / step) * step, step
 
 
-def response_contours_fig(models, bounds, oil_pct=5.0):
+def _grid(bounds, oil_pct):
     lows, highs = (np.asarray(b) * VS for b in bounds)
     s = np.linspace(lows[3], highs[3], 131)
     g = np.linspace(lows[2], highs[2], 161)
     SS, GG = np.meshgrid(s, g)
     dough = VS - oil_pct - SS - GG
     Xg = np.column_stack([dough.ravel(), np.full(dough.size, oil_pct), GG.ravel(), SS.ravel()]) / VS
-    outside = (dough < lows[0] - 1e-9) | (dough > highs[0] + 1e-9)
+    return s, g, Xg, (dough < lows[0] - 1e-9) | (dough > highs[0] + 1e-9)
 
-    rows, cols = 2, 3
-    fig = make_subplots(rows, cols, horizontal_spacing=0.13, vertical_spacing=0.18)
+
+def _add_contour(fig, model, resp, s, g, Xg, outside, row, col, cbar):
+    Z = m4.gpr_predict(model, Xg).reshape(len(g), len(s))
+    Z[outside] = np.nan
+    if outside.any():
+        fig.add_trace(go.Heatmap(x=s, y=g, z=np.where(outside, 1.0, np.nan), showscale=False,
+                                 colorscale=[[0, "#e5e7eb"], [1, "#e5e7eb"]], hoverinfo="skip"), row, col)
+    fig.add_trace(go.Contour(
+        x=s, y=g, z=Z, colorscale="Blues", ncontours=12, line=dict(width=0),
+        contours=dict(coloring="fill", showlines=False), colorbar=cbar,
+        hovertemplate="Corn starch %{x:.1f}%<br>1% agar gel %{y:.1f}%<br>" + LABELS[resp]
+                      + " %{z:.2f}<extra></extra>"), row, col)
+    start, step = _nice_levels(Z)
+    fig.add_trace(go.Contour(
+        x=s, y=g, z=Z, showscale=False, hoverinfo="skip", line=dict(color=INK, width=0.6),
+        contours=dict(coloring="none", start=start, end=np.nanmax(Z), size=step, showlabels=True,
+                      labelfont=dict(size=11, color=INK))), row, col)
+    fig.update_xaxes(title_text="Corn starch (%)", range=[s[0], s[-1]], showgrid=False, row=row, col=col)
+    fig.update_yaxes(title_text="1% agar gel (%)", range=[g[0], g[-1]], showgrid=False, row=row, col=col)
+
+
+def response_contour_fig(models, bounds, oil_pct, resp):
+    s, g, Xg, outside = _grid(bounds, oil_pct)
+    fig = make_subplots(1, 1)
+    _add_contour(fig, models[resp], resp, s, g, Xg, outside, 1, 1,
+                 dict(title=dict(text=LABELS[resp], side="right"), outlinecolor=MUTED, outlinewidth=0.5))
+    _style(fig)
+    fig.update_layout(height=520)
+    return fig
+
+
+def response_contours_fig(models, bounds, oil_pct=5.0):
+    s, g, Xg, outside = _grid(bounds, oil_pct)
+    fig = make_subplots(2, 3, horizontal_spacing=0.13, vertical_spacing=0.18)
     titles = []
     for k, resp in enumerate(m4.RESPONSES):
-        r, c = divmod(k, cols)
-        Z = m4.gpr_predict(models[resp], Xg).reshape(SS.shape)
-        Z[outside] = np.nan
-        if outside.any():
-            fig.add_trace(go.Heatmap(x=s, y=g, z=np.where(outside, 1.0, np.nan), showscale=False,
-                                     colorscale=[[0, "#e5e7eb"], [1, "#e5e7eb"]], hoverinfo="skip"),
-                          r + 1, c + 1)
+        r, c = divmod(k, 3)
         xa = fig.layout[f"xaxis{'' if k == 0 else k + 1}"].domain
         ya = fig.layout[f"yaxis{'' if k == 0 else k + 1}"].domain
-        fig.add_trace(go.Contour(
-            x=s, y=g, z=Z, colorscale="Blues", ncontours=12, line=dict(width=0),
-            contours=dict(coloring="fill", showlines=False),
-            colorbar=dict(x=xa[1] + 0.01, y=(ya[0] + ya[1]) / 2, len=ya[1] - ya[0], thickness=12,
-                          outlinecolor=MUTED, outlinewidth=0.5, tickfont=dict(size=11, color=MUTED)),
-            hovertemplate="Corn starch %{x:.1f}%<br>1% agar gel %{y:.1f}%<br>" + LABELS[resp]
-                          + " %{z:.2f}<extra></extra>"), r + 1, c + 1)
-        start, step = _nice_levels(Z)
-        fig.add_trace(go.Contour(
-            x=s, y=g, z=Z, showscale=False, hoverinfo="skip",
-            contours=dict(coloring="none", start=start, end=np.nanmax(Z), size=step, showlabels=True,
-                          labelfont=dict(size=11, color=INK)),
-            line=dict(color=INK, width=0.6)), r + 1, c + 1)
-        fig.update_xaxes(title_text="Corn starch (%)", range=[s[0], s[-1]], showgrid=False, row=r + 1, col=c + 1)
-        fig.update_yaxes(title_text="1% agar gel (%)", range=[g[0], g[-1]], showgrid=False, row=r + 1, col=c + 1)
+        _add_contour(fig, models[resp], resp, s, g, Xg, outside, r + 1, c + 1,
+                     dict(x=xa[1] + 0.01, y=(ya[0] + ya[1]) / 2, len=ya[1] - ya[0], thickness=12,
+                          outlinecolor=MUTED, outlinewidth=0.5, tickfont=dict(size=11, color=MUTED)))
         titles.append(f"({chr(97 + k)}) {LABELS[resp]}")
     fig.update_xaxes(visible=False, row=2, col=3)
     fig.update_yaxes(visible=False, row=2, col=3)

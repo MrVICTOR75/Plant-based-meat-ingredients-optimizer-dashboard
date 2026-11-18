@@ -88,7 +88,9 @@ def optimize_desirability(models, group_name, n_starts=40, seed=None, cost_u=Non
     cons = K.scipy_constraints()
     lows, highs = K.get_bounds()
     bounds = list(zip(lows, highs))
-    starts = K.sample_feasible(n_starts, rng=rng)
+    pool = K.sample_feasible(2000, rng=rng)
+    pool_D = np.array([-neg_D(x) for x in pool])
+    starts = pool[np.argsort(-pool_D, kind="stable")[:n_starts]]
 
     best = None
     for x0 in starts:

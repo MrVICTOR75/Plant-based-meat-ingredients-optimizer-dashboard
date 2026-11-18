@@ -17,7 +17,7 @@ NUTRIENT_IDS = {1003: "Protein (g)", 1008: "Energy (kcal)", 1004: "Fat (g)",
                 1005: "Carb (g)", 1051: "Water (g)"}
 NUTRIENTS = list(NUTRIENT_IDS.values())
 
-THB_PER_USD = 33.0
+THB_PER_USD = 35.28
 
 PRICE_USD_PER_KG = {
     "Soy protein isolate": 4.63,

@@ -11,6 +11,7 @@ import m2_design as m2
 import m3_evaluate as m3
 import m4_gpr_df as m4
 import m5_contour as m5
+import m6_figures as m6
 
 st.set_page_config(page_title="Plant-Based Meat Optimizer", layout="wide", page_icon="leaf")
 
@@ -70,7 +71,7 @@ if run:
         prog.progress(i / len(C.DESIGN_METHODS), text=meth)
         results[meth] = run_one(meth, int(n_points), int(seed), matrix, xi, group, cost_u)
     prog.empty()
-    st.session_state.update(results=results, matrix=matrix, group=group, bounds=K.get_bounds(),
+    st.session_state.update(results=results, matrix=matrix, group=group, bounds=K.get_bounds(), png={},
                             best_method=max(results, key=lambda m: results[m]["best"]["D"]))
 
 if "results" not in st.session_state:
@@ -85,7 +86,7 @@ comp_df = pd.DataFrame([{"Method": m, "Points": r["info"]["actual_n"],
                          "Mean R2": float(np.nanmean(list(r["r2"].values()))),
                          "D (overall)": r["best"]["D"]} for m, r in results.items()])
 
-st.success(f"Best method: {best_method} (D = {results[best_method]['best']['D']:.4f})")
+st.success(f"Highest predicted D: {best_method} (D = {results[best_method]['best']['D']:.4f})")
 
 tabs = st.tabs(["1) Ingredients", "2) Method Comparison", "3) Point Distribution",
                 "4) Nutritional Values", "5) GPR + LOOCV", "6) Best Points", "7) Contour"])
@@ -114,11 +115,23 @@ with tabs[1]:
         col.plotly_chart(fig, width="stretch", key=f"cmp_{y}")
     st.download_button("Method_Comparison.xlsx", xlsx(comp_df), "Method_Comparison.xlsx")
 
+def png(key, make):
+    if key not in S["png"]:
+        S["png"][key] = make()
+    return S["png"][key]
+
+
 with tabs[2]:
-    st.plotly_chart(m5.design_points_fig(results), width="stretch", key="points")
     vm = pick_method("vm_dist")
+    cols = st.columns(2)
+    for i, fig in enumerate(m2.make_simplex_figures(results[vm]["design"])):
+        cols[i % 2].plotly_chart(fig, width="stretch", key=f"simplex_{vm}_{i}")
     st.dataframe(results[vm]["design"].round(4), width="stretch", height=260)
     st.download_button("Design_Points.xlsx", xlsx(results[vm]["design"]), f"Design_Points_{vm}.xlsx")
+    st.subheader("All designs")
+    st.plotly_chart(m5.design_points_fig(results), width="stretch", key="points")
+    st.download_button("Download figure (PNG, 300 dpi)", png("points", lambda: m6.design_points_png(results)),
+                       "Design_points.png", mime="image/png")
 
 with tabs[3]:
     vm = pick_method("vm_nutri")
@@ -150,5 +163,11 @@ with tabs[6]:
         vm = pick_method("vm_contour")
     lo, hi = (round(100 * C.VARIABLE_SHARE * b[1], 2) for b in S["bounds"])
     oil = c2.slider("Coconut oil (%)", float(lo), float(hi), float(min(max(5.0, lo), hi)), 0.5)
-    st.plotly_chart(m5.response_contours_fig(results[vm]["models"], S["bounds"], oil),
-                    width="stretch", key="contour")
+    models = results[vm]["models"]
+    resp = st.selectbox("Response", m4.RESPONSES, key="cont_resp")
+    st.plotly_chart(m5.response_contour_fig(models, S["bounds"], oil, resp), width="stretch", key="contour_one")
+    st.subheader("All responses")
+    st.plotly_chart(m5.response_contours_fig(models, S["bounds"], oil), width="stretch", key="contour")
+    st.download_button("Download figure (PNG, 300 dpi)",
+                       png(("contour", vm, oil), lambda: m6.responses_png(models, S["bounds"], oil)),
+                       "Responses.png", mime="image/png")
