@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 from scipy.optimize import minimize
 
@@ -103,6 +104,7 @@ def optimize_desirability(models, group_name, n_starts=40, seed=None, cost_u=Non
             best = {"x": res.x, "D": D, "d": d, "responses": responses_at(res.x)}
 
     if best is None:
+        warnings.warn(f"SLSQP failed from every start for {group_name}; returning the best start point.")
         scored = [(overall_D(responses_at(x), group_name, cost_u=cost_u)[0], x) for x in starts]
         D, x = max(scored, key=lambda t: t[0])
         best = {"x": x, "D": D,

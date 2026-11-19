@@ -68,12 +68,6 @@ VARIABLE_SHARE = 1.0 - sum(FIXED_COMPONENTS.values())
 INGREDIENT_BOUNDS = {k: (lo / VARIABLE_SHARE, hi / VARIABLE_SHARE)
                      for k, (lo, hi) in PRODUCT_BOUNDS.items()}
 
-PROCESS_LOSS = {
-    "Protein (g)":   0.10,
-    "Fat (g)":       0.15,
-    "Carb (g)":      0.05,
-    "Energy (kcal)": 0.00,
-}
 KJ_PER_KCAL = 4.184
 
 PRODUCT_GROUPS = {

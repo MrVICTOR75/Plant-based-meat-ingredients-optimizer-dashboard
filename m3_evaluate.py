@@ -17,13 +17,7 @@ def product_composition(X):
 
 def _responses(X, matrix_df):
     P = product_composition(X) @ _matrix(matrix_df)
-    prot = P[:, 0] * (1 - C.PROCESS_LOSS["Protein (g)"])
-    kcal = P[:, 1] * (1 - C.PROCESS_LOSS["Energy (kcal)"])
-    fat = P[:, 2] * (1 - C.PROCESS_LOSS["Fat (g)"])
-    carb = P[:, 3] * (1 - C.PROCESS_LOSS["Carb (g)"])
-    water = P[:, 4]
-    cost = P[:, 5] + m1.fixed_cost_baht()
-    return prot, kcal, fat, carb, water, cost
+    return P[:, 0], P[:, 1], P[:, 2], P[:, 3], P[:, 4], P[:, 5] + m1.fixed_cost_baht()
 
 
 def evaluate_design(design_df, matrix_df):
